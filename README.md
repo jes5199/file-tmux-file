@@ -79,16 +79,36 @@ ls -la
 
 Lines ending with `\n` are sent with Enter. Incomplete lines are held until complete.
 
+### Special Characters
+
+Unicode, emoji, and special characters are fully supported:
+
+```
+echo "Hello 世界 🚀"
+```
+
+Text is sent via hex encoding internally, avoiding tmux escaping issues.
+
 ### Special Commands
 
 | Command | Action |
 |---------|--------|
 | `/literal text` | Send text without Enter |
-| `/key C-c` | Send a key sequence |
+| `/key <name>` | Send a tmux key by name |
 | `/enter` | Send Enter key |
 | `/escape` | Send Escape key |
-| `/clear` | Clear the pane |
+| `/clear` | Clear input buffer (Ctrl+U) |
 | `/cancel` | Send Ctrl+C |
+
+#### Key Names for `/key`
+
+Use standard tmux key names:
+
+- Modifiers: `C-c` (Ctrl+C), `M-x` (Alt+X), `C-M-a` (Ctrl+Alt+A)
+- Special: `Enter`, `Escape`, `Tab`, `Space`, `BSpace`
+- Arrows: `Up`, `Down`, `Left`, `Right`
+- Function: `F1` through `F12`
+- Navigation: `Home`, `End`, `PgUp`, `PgDn`
 
 ## Use Cases
 
