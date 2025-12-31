@@ -63,13 +63,13 @@ def capture_pane(pane_id: str, scrollback: int) -> str:
         return ""
 
 
-def send_keys(pane_id: str, text: str, literal: bool = True) -> bool:
+def send_keys(pane_id: str, text: str) -> bool:
     """Send keys to a pane. Returns True on success."""
     try:
-        cmd = ["tmux", "send-keys", "-t", pane_id]
-        if literal:
-            cmd.append("-l")
-        cmd.append(text)
+        # Use -H to send hex codes, avoiding tmux's escaping issues
+        # Convert text to hex pairs
+        hex_codes = [format(ord(c), '02x') for c in text]
+        cmd = ["tmux", "send-keys", "-t", pane_id, "-H"] + hex_codes
         subprocess.run(cmd, check=True, capture_output=True)
         return True
     except subprocess.CalledProcessError:
