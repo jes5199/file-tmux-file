@@ -101,6 +101,18 @@ def send_soft_newline(pane_id: str) -> bool:
         return False
 
 
+def send_key(pane_id: str, key: str) -> bool:
+    """Send an arbitrary tmux key by name (e.g., C-c, Escape, Up)."""
+    try:
+        subprocess.run(
+            ["tmux", "send-keys", "-t", pane_id, key],
+            check=True, capture_output=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def sanitize_name(name: str) -> str:
     """Sanitize session/window names for filesystem use."""
     return re.sub(r'[^\w\-.]', '_', name)

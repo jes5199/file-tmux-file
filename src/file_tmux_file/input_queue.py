@@ -1,95 +1,101 @@
 """Process input queue files.
 
-Message format:
-- Single newline within text: sent as Shift+Enter (soft newline, no submit)
-- Double newline (blank line) or EOF after newline: submits the message
-- Text without trailing newline: buffered until next poll
+Simple line-based protocol:
+- Each line is sent followed by Enter (submits the line)
+- Lines starting with / are commands:
+  - /literal <text> - send text WITHOUT Enter (for partial input)
+  - /key <name> - send tmux key (e.g., /key C-c, /key Escape)
+  - /clear - clear input buffer (Ctrl+U)
+  - /cancel - send Ctrl+C
+  - /escape - send Escape
 
 Example:
-    Hello
-    World
+    echo hello
+    (sends "echo hello" + Enter)
 
-    (blank line above triggers submit of "Hello\\nWorld")
+    /literal partial text
+    (sends "partial text" without Enter)
+
+    /key C-c
+    (sends Ctrl+C)
 """
 
 from pathlib import Path
-from .tmux import send_keys, send_enter, send_soft_newline
-
-
-# Track pending content from previous poll
-_pending_content: dict[str, str] = {}
+from .tmux import send_keys, send_enter, send_key
 
 
 def process_input_queue(pane_id: str, input_file: Path) -> None:
-    """Process input.txt, sending content to pane."""
+    """Process input.txt, sending each line to the pane."""
     if not input_file.exists():
         return
 
     content = input_file.read_text()
     if not content:
-        # Check if we have pending content from last poll - send it now
-        if pane_id in _pending_content:
-            pending = _pending_content.pop(pane_id)
-            _send_message(pane_id, pending, submit=True)
         return
 
-    # Check for submit signal: double newline or trailing newline at EOF
-    # Split on double newline to find complete messages
-    messages = content.split('\n\n')
+    # Process each line
+    lines = content.split('\n')
 
-    if len(messages) > 1:
-        # We have at least one complete message (before a blank line)
-        # Send all complete messages
-        for msg in messages[:-1]:
-            if msg.strip():  # Don't send empty messages
-                # Prepend any pending content to first message
-                if pane_id in _pending_content:
-                    msg = _pending_content.pop(pane_id) + '\n' + msg
-                _send_message(pane_id, msg, submit=True)
+    # Track if file ends with newline (last element will be empty string)
+    has_trailing_newline = content.endswith('\n')
+    if has_trailing_newline and lines and lines[-1] == '':
+        lines = lines[:-1]  # Remove empty trailing element
 
-        # Handle remaining content after last blank line
-        remaining = messages[-1]
-        if remaining:
-            _pending_content[pane_id] = remaining
-            input_file.write_text(remaining)
-        else:
-            _pending_content.pop(pane_id, None)
-            input_file.write_text("")
-    else:
-        # No double newline - buffer the content
-        # Check if content ends with single newline (ready for more input)
-        if content.endswith('\n'):
-            # Accumulate with any pending content
-            if pane_id in _pending_content:
-                _pending_content[pane_id] += '\n' + content.rstrip('\n')
-            else:
-                _pending_content[pane_id] = content.rstrip('\n')
-            input_file.write_text("")
-        else:
-            # No trailing newline - check if unchanged from last poll
-            pending = _pending_content.get(pane_id)
-            if pending and content == pending:
-                # Unchanged - send it now
-                _pending_content.pop(pane_id)
-                _send_message(pane_id, content, submit=True)
-                input_file.write_text("")
-            else:
-                # New or modified content - buffer it
-                _pending_content[pane_id] = content
-
-
-def _send_message(pane_id: str, message: str, submit: bool = False) -> None:
-    """Send a message to a pane, using soft newlines for internal line breaks."""
-    lines = message.split('\n')
+    processed_count = 0
     for i, line in enumerate(lines):
-        send_keys(pane_id, line)
-        if i < len(lines) - 1:
-            # More lines to come - soft newline
-            send_soft_newline(pane_id)
-    if submit:
+        is_last = (i == len(lines) - 1)
+
+        # Skip empty lines
+        if not line:
+            processed_count += 1
+            continue
+
+        if line.startswith('/'):
+            # Command
+            _process_command(pane_id, line)
+            processed_count += 1
+        else:
+            # Regular text - send with Enter if line is complete
+            if is_last and not has_trailing_newline:
+                # Last line without newline - leave it for next poll
+                break
+            send_keys(pane_id, line)
+            send_enter(pane_id)
+            processed_count += 1
+
+    # Clear processed content, keep unprocessed remainder
+    if processed_count == len(lines):
+        input_file.write_text("")
+    else:
+        remaining = '\n'.join(lines[processed_count:])
+        input_file.write_text(remaining)
+
+
+def _process_command(pane_id: str, command: str) -> bool:
+    """Process a /command line. Returns True if handled."""
+    parts = command.split(None, 1)
+    cmd = parts[0].lower()
+    arg = parts[1] if len(parts) > 1 else ""
+
+    if cmd == "/literal":
+        if arg:
+            send_keys(pane_id, arg)
+    elif cmd == "/key":
+        if arg:
+            send_key(pane_id, arg)
+    elif cmd == "/clear":
+        send_key(pane_id, "C-u")
+    elif cmd == "/cancel":
+        send_key(pane_id, "C-c")
+    elif cmd == "/escape":
+        send_key(pane_id, "Escape")
+    elif cmd == "/enter":
         send_enter(pane_id)
+    else:
+        return False  # Unknown command
+    return True
 
 
 def clear_pending(pane_id: str) -> None:
-    """Clear any pending content for a pane."""
-    _pending_content.pop(pane_id, None)
+    """Clear any pending content for a pane (no-op in simplified protocol)."""
+    pass
