@@ -88,19 +88,6 @@ def send_enter(pane_id: str) -> bool:
         return False
 
 
-def send_soft_newline(pane_id: str) -> bool:
-    """Send Shift+Enter for a soft newline (no submit)."""
-    try:
-        # Shift+Enter in most terminals
-        subprocess.run(
-            ["tmux", "send-keys", "-t", pane_id, "S-Enter"],
-            check=True, capture_output=True
-        )
-        return True
-    except subprocess.CalledProcessError:
-        return False
-
-
 def send_key(pane_id: str, key: str) -> bool:
     """Send an arbitrary tmux key by name (e.g., C-c, Escape, Up)."""
     try:
