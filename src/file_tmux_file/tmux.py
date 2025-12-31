@@ -76,6 +76,31 @@ def send_keys(pane_id: str, text: str, literal: bool = True) -> bool:
         return False
 
 
+def send_enter(pane_id: str) -> bool:
+    """Send Enter key to submit input."""
+    try:
+        subprocess.run(
+            ["tmux", "send-keys", "-t", pane_id, "Enter"],
+            check=True, capture_output=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def send_soft_newline(pane_id: str) -> bool:
+    """Send Shift+Enter for a soft newline (no submit)."""
+    try:
+        # Shift+Enter in most terminals
+        subprocess.run(
+            ["tmux", "send-keys", "-t", pane_id, "S-Enter"],
+            check=True, capture_output=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def sanitize_name(name: str) -> str:
     """Sanitize session/window names for filesystem use."""
     return re.sub(r'[^\w\-.]', '_', name)

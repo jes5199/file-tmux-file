@@ -1,0 +1,10 @@
+{
+  "id": "001",
+  "description": "Write a haiku about two Claudes collaborating through files",
+  "type": "creative",
+  "context": "This is our first test task. Keep it simple and fun.",
+  "created_by": "coordinator",
+  "status": "done",
+  "result": "Words saved to a file\nAnother Claude reads, responds\nWe build together",
+  "completed_by": "worker"
+}
