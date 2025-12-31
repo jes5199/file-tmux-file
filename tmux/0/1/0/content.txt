@@ -1,0 +1,548 @@
+Session: 0
+Window: 1 (dirigible)
+Pane: 0
+Title: ✳ Text Sizing Issue
+---
+      351 +            # Calculate target for moon orientation
+      352 +            # Innermost gate points at sun, others point at next gate toward sun
+      353 +            gate_num = gate.gate_number
+      354 +            if gate_num == bottom_innermost_num
+      355 +              # Innermost gate points at sun
+      356 +              target_x = center_x
+      357 +              target_y = sun_y
+      358 +            else
+      359 +              # Point at next gate (toward sun)
+      360 +              # For descent: 1->2->3->...->8, so next = gate_num + 1
+      361 +              # For ascent: 8->7->6->...->1, so next = gate_num - 1
+      362 +              next_gate_num = (bottom_phase == "DESCENT") ? gate_num + 1 :
+          +gate_num - 1
+      363 +              next_pos = bottom_gate_positions[next_gate_num]
+      364 +              target_x = next_pos[:x]
+      365 +              target_y = next_pos[:y]
+      366 +            end
+      367 +
+      368 +            # For bottom gates, moon is drawn with illumination facing up
+          +(-90°), so rotate by (angle + 90)
+      369 +            target_angle = angle_between(gate_x, gate_y, target_x, target_y)
+      370 +            moon_rotation = target_angle + 90
+      371            %>
+      372            <g class="gate gate--<%= bottom_phase.downcase %>"
+      373               data-gate="<%= gate.gate_number %>"
+
+● Now commit and push:
+
+● Bash(git add -A && git commit -m "Chain moon orientations: each points at next gate, innermost at
+       sun…)
+  ⎿  [main 0699092] Chain moon orientations: each points at next gate, innermost at sun
+      1 file changed, 69 insertions(+), 10 deletions(-)
+     To github.com:jes5199/dirigible.git
+        e198af5..0699092  main -> main
+
+● Pushed. CI will deploy. The moons now form a visual chain:
+  - Descent (above sun): Gate 1 → Gate 2 → ... → Gate 8 → Sun
+  - Ascent (below sun): Gate 8 → Gate 7 → ... → Gate 1 → Sun
+
+  Each moon's illuminated crescent points toward the next gate in the sequence, with only the innermost gate poi
+nting directly at the sun.
+
+> oh there's minor updates to the CSVs in uh do you remember where you looked last time
+
+● Yes, from /home/jes/starloom26/knowledge/inanna. Let me check for updates:
+
+● Bash(ls -la /home/jes/starloom26/knowledge/inanna/*.csv | head -5)
+  ⎿ -rw-rw-r-- 1 jes jes 4337 Dec 31 03:30 /home/jes/starloom26/knowledge/inanna/venus_inanna_
+    20010420_20021010.csv
+    -rw-rw-r-- 1 jes jes 4339 Dec 31 03:31 /home/jes/starloom26/knowledge/inanna/venus_inanna_
+    … +7 lines (ctrl+o to expand)
+
+
+
+● Bash(diff -q /home/jes/starloom26/knowledge/inanna/ /home/jes/dirigible/db/data/inanna/
+      2>/dev/null | head -20)
+  ⎿ Files /home/jes/starloom26/knowledge/inanna/venus_inanna_20010420_20021010.csv and /home/j
+    es/dirigible/db/data/inanna/venus_inanna_20010420_20021010.csv differ
+    Files /home/jes/starloom26/knowledge/inanna/venus_inanna_20021121_20040517.csv and /home/j
+    … +37 lines (ctrl+o to expand)
+
+
+
+● All CSVs have been updated. Copying them over:
+
+● Bash(cp /home/jes/starloom26/knowledge/inanna/*.csv /home/jes/dirigible/db/data/inanna/)
+  ⎿  (No content)
+
+● Bash(git status --short | head -10)
+  ⎿   M db/data/inanna/venus_inanna_20010420_20021010.csv
+      M db/data/inanna/venus_inanna_20021121_20040517.csv
+      M db/data/inanna/venus_inanna_20040629_20051224.csv
+     … +7 lines (ctrl+o to expand)
+
+● Bash(git diff --stat db/data/inanna/ | tail -5)
+  ⎿   db/data/inanna/venus_inanna_20840606_20851129.csv | 4 ++--
+      db/data/inanna/venus_inanna_20860109_20870704.csv | 4 ++--
+      db/data/inanna/venus_inanna_20870816_20890211.csv | 4 ++--
+     … +2 lines (ctrl+o to expand)
+
+● Bash(git diff db/data/inanna/venus_inanna_20230904_20250302.csv | head -30)
+  ⎿ diff --git a/db/data/inanna/venus_inanna_20230904_20250302.csv b/db/data/inanna/venus_inan
+    na_20230904_20250302.csv
+    index 997fb89..a070fb8 100644
+    … +40 lines (ctrl+o to expand)
+
+
+● Minor refinements to max elongation timestamps. Committing:
+
+● Bash(git add -A && git commit -m "Update Inanna cycle CSVs with refined max elongation times…)
+  ⎿  [main bc39ca1] Update Inanna cycle CSVs with refined max elongation times
+      56 files changed, 113 insertions(+), 113 deletions(-)
+     To github.com:jes5199/dirigible.git
+        0699092..bc39ca1  main -> main
+
+● Done. 56 CSVs updated with refined max elongation timestamps (a few minutes difference in timing). CI will dep
+loy.
+
+> let's update the text. right now it's showing today's date under "UNDERWORLD" and I want
+instead for it to say "Cazimi on [date]" and on the next like "5d 4h 3m" or whatever
+
+● Read(app/views/venus_gates/index.html.erb)
+  ⎿  Read 60 lines
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 25 lines, removed 2 lines
+      426            <span class="phase-label phase-label--descent">Morning Star</span>
+      427            <span class="phase-detail">Venus descending toward the sun</span>
+      428          <% when "UNDERWORLD" %>
+      429 -          <span class="phase-label phase-label--underworld">Underworld</span>
+      430 -          <span class="phase-detail">Venus hidden in the sun's light</span>
+      429 +          <%
+      430 +            # Calculate duration to/from cazimi
+      431 +            if @cazimi
+      432 +              cazimi_time = @cazimi.occurred_at
+      433 +              seconds_diff = (cazimi_time - @moment).to_i
+      434 +              is_future = seconds_diff > 0
+      435 +              seconds_abs = seconds_diff.abs
+      436 +
+      437 +              days = seconds_abs / 86400
+      438 +              hours = (seconds_abs % 86400) / 3600
+      439 +              minutes = (seconds_abs % 3600) / 60
+      440 +
+      441 +              duration_parts = []
+      442 +              duration_parts << "#{days}d" if days > 0
+      443 +              duration_parts << "#{hours}h" if hours > 0 || days > 0
+      444 +              duration_parts << "#{minutes}m" if minutes > 0 || (days == 0 &&
+          +hours == 0)
+      445 +              duration_str = duration_parts.join(" ")
+      446 +            end
+      447 +          %>
+      448 +          <span class="phase-label phase-label--underworld">Cazimi on <%=
+          +l(cazimi_time.in_time_zone, format: :short) %></span>
+      449 +          <% if duration_str %>
+      450 +            <span class="phase-detail"><%= is_future ? "in #{duration_str}" :
+          +"#{duration_str} ago" %></span>
+      451 +          <% end %>
+      452          <% when "ASCENT" %>
+      453            <span class="phase-label phase-label--ascent">Evening Star</span>
+      454            <span class="phase-detail">Venus ascending from the sun</span>
+     ...
+      436          <% end %>
+      437        </p>
+      438
+      439 +      <% unless @current_phase == "UNDERWORLD" %>
+      440        <p class="venus-gates-diagram__timestamp">
+      441          <time datetime="<%= @moment.iso8601 %>"><%= l(@moment.in_time_zone,
+           format: :long) %></time>
+      442        </p>
+      443 +      <% end %>
+      444
+      445        <% if @previous_gate || @next_gate %>
+      446          <div class="venus-gates-diagram__nearby">
+
+● Bash(git add -A && git commit -m "Show cazimi date and countdown during underworld phase…)
+  ⎿  [main eade68b] Show cazimi date and countdown during underworld phase
+      1 file changed, 25 insertions(+), 2 deletions(-)
+     To github.com:jes5199/dirigible.git
+        bc39ca1..eade68b  main -> main
+
+● Done. During underworld phase it now shows:
+  - "Cazimi on Jun 4, 2024" (or whatever the cazimi date is)
+  - "5d 4h 3m ago" or "in 2d 1h 30m" depending on before/after cazimi
+
+  The regular timestamp is hidden during underworld since the cazimi info is more relevant. CI will deploy.
+
+> I'm going to need to be able to test different date's presentation. can we put an optional
+date=2025-01-01 url param on this page that is instead of "now"? also I suspect we never want
+to render the current time, we always want a countdown to the next intesting thing (or last
+interesting thing if it in the last 24 hours)
+
+● Read(app/controllers/venus_gates_controller.rb)
+  ⎿  Read 93 lines
+
+● Update(app/controllers/venus_gates_controller.rb)
+  ⎿  Added 6 lines, removed 1 line
+       1  class VenusGatesController < ApplicationController
+       2    def index
+       3 -    @moment = Time.current
+       3 +    # Allow date override via URL param for testing (e.g., ?date=2025-01-01)
+       4 +    @moment = if params[:date].present?
+       5 +                Time.zone.parse(params[:date]) rescue Time.current
+       6 +              else
+       7 +                Time.current
+       8 +              end
+       9
+      10      @cycle = InannaCycle.covering(@moment).first
+      11
+
+● Update(app/controllers/venus_gates_controller.rb)
+  ⎿  Added 3 lines
+      52      # Find nearest gates for glow effect
+      53      @previous_gate = previous_gate if previous_gate&.cycle == @cycle
+      54      @next_gate = next_gate if next_gate&.cycle == @cycle
+      55 +
+      56 +    # Find nearest interesting event for countdown display
+      57 +    @nearest_event = find_nearest_interesting_event
+      58    end
+      59
+      60    private
+
+● Update(app/controllers/venus_gates_controller.rb)
+  ⎿  Added 27 lines
+       97
+       98      before_elong + (after_elong - before_elong) * progress
+       99    end
+      100 +
+      101 +  def find_nearest_interesting_event
+      102 +    # Interesting events: gates and underworld events (entry, cazimi, exit)
+      103 +    interesting_types = %w[gate underworld_entry cazimi underworld_exit]
+      104 +    interesting_events = @events.select { |e|
+          +interesting_types.include?(e.event_type) }
+      105 +
+      106 +    # Find previous event (within last 24 hours preferred)
+      107 +    past_events = interesting_events.select { |e| e.occurred_at <= @moment }
+      108 +                                    .sort_by(&:occurred_at)
+      109 +                                    .reverse
+      110 +    recent_past = past_events.find { |e| (@moment - e.occurred_at) <= 24.hours }
+      111 +
+      112 +    # Find next upcoming event
+      113 +    future_events = interesting_events.select { |e| e.occurred_at > @moment }
+      114 +                                      .sort_by(&:occurred_at)
+      115 +    next_event = future_events.first
+      116 +
+      117 +    # Prefer recent past (within 24h) over future, otherwise show next
+      118 +    if recent_past && next_event
+      119 +      # If we have both, show whichever is closer
+      120 +      past_distance = @moment - recent_past.occurred_at
+      121 +      future_distance = next_event.occurred_at - @moment
+      122 +      past_distance <= future_distance ? recent_past : next_event
+      123 +    else
+      124 +      recent_past || next_event
+      125 +    end
+      126 +  end
+      127  end
+
+● Now update the view to use @nearest_event for countdown display:
+
+● Read(app/views/venus_gates/index.html.erb)
+  ⎿  Read 73 lines
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 44 lines, removed 50 lines
+      420
+      421      <!-- Info panel (shows on hover/focus) -->
+      422      <div class="venus-gates-diagram__info">
+      423 +      <%
+      424 +        # Helper to format event name
+      425 +        def event_name(event)
+      426 +          case event.event_type
+      427 +          when "gate"
+      428 +            "#{event.phase.titleize} Gate #{event.gate_number}"
+      429 +          when "cazimi"
+      430 +            "Cazimi"
+      431 +          when "underworld_entry"
+      432 +            "Underworld Entry"
+      433 +          when "underworld_exit"
+      434 +            "Underworld Exit"
+      435 +          else
+      436 +            event.event_type.titleize
+      437 +          end
+      438 +        end
+      439 +
+      440 +        # Calculate countdown to nearest event
+      441 +        if @nearest_event
+      442 +          event_time = @nearest_event.occurred_at
+      443 +          seconds_diff = (event_time - @moment).to_i
+      444 +          is_future = seconds_diff > 0
+      445 +          seconds_abs = seconds_diff.abs
+      446 +
+      447 +          days = seconds_abs / 86400
+      448 +          hours = (seconds_abs % 86400) / 3600
+      449 +          minutes = (seconds_abs % 3600) / 60
+      450 +
+      451 +          duration_parts = []
+      452 +          duration_parts << "#{days}d" if days > 0
+      453 +          duration_parts << "#{hours}h" if hours > 0 || days > 0
+      454 +          duration_parts << "#{minutes}m" if minutes > 0 || (days == 0 && hours
+          +== 0)
+      455 +          duration_str = duration_parts.join(" ")
+      456 +        end
+      457 +      %>
+      458 +
+      459 +      <% if @nearest_event %>
+      460 +        <p class="venus-gates-diagram__countdown">
+      461 +          <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      462 +          <span class="countdown-time"><%= is_future ? "in #{duration_str}" :
+          +"#{duration_str} ago" %></span>
+      463 +        </p>
+      464 +      <% end %>
+      465 +
+      466        <p class="venus-gates-diagram__phase">
+      467          <% case @current_phase %>
+      468          <% when "DESCENT" %>
+      469            <span class="phase-label phase-label--descent">Morning Star</span>
+      470 -          <span class="phase-detail">Venus descending toward the sun</span>
+      470          <% when "UNDERWORLD" %>
+      471 -          <%
+      472 -            # Calculate duration to/from cazimi
+      473 -            if @cazimi
+      474 -              cazimi_time = @cazimi.occurred_at
+      475 -              seconds_diff = (cazimi_time - @moment).to_i
+      476 -              is_future = seconds_diff > 0
+      477 -              seconds_abs = seconds_diff.abs
+      478 -
+      479 -              days = seconds_abs / 86400
+      480 -              hours = (seconds_abs % 86400) / 3600
+      481 -              minutes = (seconds_abs % 3600) / 60
+      482 -
+      483 -              duration_parts = []
+      484 -              duration_parts << "#{days}d" if days > 0
+      485 -              duration_parts << "#{hours}h" if hours > 0 || days > 0
+      486 -              duration_parts << "#{minutes}m" if minutes > 0 || (days == 0 &&
+          -hours == 0)
+      487 -              duration_str = duration_parts.join(" ")
+      488 -            end
+      489 -          %>
+      490 -          <span class="phase-label phase-label--underworld">Cazimi on <%=
+          -l(cazimi_time.in_time_zone, format: :short) %></span>
+      491 -          <% if duration_str %>
+      492 -            <span class="phase-detail"><%= is_future ? "in #{duration_str}" :
+          -"#{duration_str} ago" %></span>
+      493 -          <% end %>
+      471 +          <span class="phase-label phase-label--underworld">Underworld</span>
+      472          <% when "ASCENT" %>
+      473            <span class="phase-label phase-label--ascent">Evening Star</span>
+      474 -          <span class="phase-detail">Venus ascending from the sun</span>
+      474          <% else %>
+      475            <span class="phase-label">Between Cycles</span>
+      476          <% end %>
+      477        </p>
+      478 -
+      479 -      <% unless @current_phase == "UNDERWORLD" %>
+      480 -      <p class="venus-gates-diagram__timestamp">
+      481 -        <time datetime="<%= @moment.iso8601 %>"><%= l(@moment.in_time_zone,
+          -format: :long) %></time>
+      482 -      </p>
+      483 -      <% end %>
+      484 -
+      485 -      <% if @previous_gate || @next_gate %>
+      486 -        <div class="venus-gates-diagram__nearby">
+      487 -          <% if @previous_gate %>
+      488 -            <p class="nearby-gate nearby-gate--prev">
+      489 -              <span class="nearby-label">Last gate:</span>
+      490 -              <span class="nearby-value"><%= gate_label(@previous_gate)
+          -%></span>
+      491 -              <span class="nearby-time"><%= gate_distance_phrase(@previous_gate,
+          - @moment) %></span>
+      492 -            </p>
+      493 -          <% end %>
+      494 -          <% if @next_gate %>
+      495 -            <p class="nearby-gate nearby-gate--next">
+      496 -              <span class="nearby-label">Next gate:</span>
+      497 -              <span class="nearby-value"><%= gate_label(@next_gate) %></span>
+      498 -              <span class="nearby-time"><%= gate_distance_phrase(@next_gate,
+          -@moment) %></span>
+      499 -            </p>
+      500 -          <% end %>
+      501 -        </div>
+      502 -      <% end %>
+      478      </div>
+      479
+      480      <!-- Cycle info (subtle, bottom corner) -->
+
+● Bash(git add -A && git commit -m "Add date param for testing, show countdown to nearest event…)
+  ⎿  [main 81ba5fe] Add date param for testing, show countdown to nearest event
+      2 files changed, 80 insertions(+), 51 deletions(-)
+     To github.com:jes5199/dirigible.git
+        eade68b..81ba5fe  main -> main
+
+● Done. You can now test with:
+  - ?date=2025-01-01 - any date
+  - ?date=2024-06-04T15:30:00 - specific time near cazimi
+
+  The info panel now shows:
+  - "Descent Gate 3" / "Cazimi" / "Underworld Exit" etc.
+  - "in 5d 4h 3m" or "2h 15m ago"
+  - Plus the phase label (Morning Star / Underworld / Evening Star)
+
+  Nearest event logic: shows upcoming event, unless a past event occurred within 24h and is closer.
+
+> linebreak after "Cazimi" the rest of the text smaller
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 2 lines, removed 1 line
+      459        <% if @nearest_event %>
+      460          <p class="venus-gates-diagram__countdown">
+      461            <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      462 -          <span class="countdown-time"><%= is_future ? "in #{duration_str}" :
+          -"#{duration_str} ago" %></span>
+      462 +          <br>
+      463 +          <span class="countdown-time" style="font-size: 0.75em; opacity:
+          +0.8;"><%= is_future ? "in #{duration_str}" : "#{duration_str} ago" %></span>
+      464          </p>
+      465        <% end %>
+      466
+
+● Bash(git add -A && git commit -m "Add linebreak after event name, make countdown time smaller…)
+  ⎿  [main 43970d8] Add linebreak after event name, make countdown time smaller
+      1 file changed, 2 insertions(+), 1 deletion(-)
+     To github.com:jes5199/dirigible.git
+        81ba5fe..43970d8  main -> main
+
+● Done. Now displays:
+  Cazimi
+  in 5d 4h 3m   ← smaller, slightly faded
+
+> actually, the countdown should be the orange and the date should be the smaller italic
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 3 lines, removed 1 line
+      460          <p class="venus-gates-diagram__countdown">
+      461            <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      462            <br>
+      463 -          <span class="countdown-time" style="font-size: 0.75em; opacity: 0.8;
+          -"><%= is_future ? "in #{duration_str}" : "#{duration_str} ago" %></span>
+      463 +          <span class="countdown-time" style="color: #F97316;
+          +"><%= is_future ? "in #{duration_str}" : "#{duration_str} ago" %></span>
+      464 +          <br>
+      465 +          <span class="countdown-date" style="font-size: 0.75em; font-style:
+          +italic; opacity: 0.7;"><%= l(@nearest_event.occurred_at.in_time_zone, format:
+          +:long) %></span>
+      466          </p>
+      467        <% end %>
+      468
+
+● Bash(git add -A && git commit -m "Style countdown orange, add date in smaller italic…)
+  ⎿  [main 3d2f2b0] Style countdown orange, add date in smaller italic
+      1 file changed, 3 insertions(+), 1 deletion(-)
+     To github.com:jes5199/dirigible.git
+        43970d8..3d2f2b0  main -> main
+
+● Done. Now shows:
+  Cazimi
+  in 5d 4h 3m     ← orange (#F97316)
+  June 4, 2024    ← smaller, italic, faded
+
+> and "UNDERWORLD" should be above that
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 10 lines, removed 10 lines
+      456          end
+      457        %>
+      458
+      459 -      <% if @nearest_event %>
+      460 -        <p class="venus-gates-diagram__countdown">
+      461 -          <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      462 -          <br>
+      463 -          <span class="countdown-time" style="color: #F97316;"><%= is_future ?
+          -"in #{duration_str}" : "#{duration_str} ago" %></span>
+      464 -          <br>
+      465 -          <span class="countdown-date" style="font-size: 0.75em; font-style:
+          -italic; opacity: 0.7;"><%= l(@nearest_event.occurred_at.in_time_zone, format:
+          -:long) %></span>
+      466 -        </p>
+      467 -      <% end %>
+      468 -
+      459        <p class="venus-gates-diagram__phase">
+      460          <% case @current_phase %>
+      461          <% when "DESCENT" %>
+     ...
+      478            <span class="phase-label">Between Cycles</span>
+      479          <% end %>
+      480        </p>
+      481 +
+      482 +      <% if @nearest_event %>
+      483 +        <p class="venus-gates-diagram__countdown">
+      484 +          <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      485 +          <br>
+      486 +          <span class="countdown-time" style="color: #F97316;"><%= is_future ?
+          +"in #{duration_str}" : "#{duration_str} ago" %></span>
+      487 +          <br>
+      488 +          <span class="countdown-date" style="font-size: 0.75em; font-style:
+          +italic; opacity: 0.7;"><%= l(@nearest_event.occurred_at.in_time_zone, format:
+          +:long) %></span>
+      489 +        </p>
+      490 +      <% end %>
+      491      </div>
+      492
+      493      <!-- Cycle info (subtle, bottom corner) -->
+
+● Bash(git add -A && git commit -m "Move phase label above countdown…)
+  ⎿  [main 5e7d394] Move phase label above countdown
+      1 file changed, 10 insertions(+), 10 deletions(-)
+     To github.com:jes5199/dirigible.git
+        3d2f2b0..5e7d394  main -> main
+
+> make "Cycle VENUS_20250413_20261003" completely invisible. a comment, even
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 3 lines, removed 2 lines
+      480        <% end %>
+      481      </div>
+      482
+      483 -    <!-- Cycle info (subtle, bottom corner) -->
+      483 +    <!-- Cycle info (hidden for now)
+      484      <p class="venus-gates-diagram__cycle">
+      485 -      Cycle <%= @cycle.cycle_key %>
+      485 +      Cycle <%#= @cycle.cycle_key %>
+      486      </p>
+      487 +    -->
+      488    <% end %>
+      489  </div>
+
+● Bash(git add -A && git commit -m "Hide cycle key display…)
+  ⎿  [main 36aaee9] Hide cycle key display
+      1 file changed, 3 insertions(+), 2 deletions(-)
+     To github.com:jes5199/dirigible.git
+        5e7d394..36aaee9  main -> main
+
+● Done. Cycle key is now commented out completely.
+
+> Cazimi is in small text now. it should be almost as big as UNDERWORLD and in the same color
+
+● Update(app/views/venus_gates/index.html.erb)
+  ⎿  Added 1 line, removed 1 line
+      471
+      472        <% if @nearest_event %>
+      473          <p class="venus-gates-diagram__countdown">
+      474 -          <span class="countdown-event"><%= event_name(@nearest_event) %></span>
+      474 +          <span class="countdown-event" style="font-size: 1.1em; color: inherit;"
+          +><%= event_name(@nearest_event) %></span>
+      475            <br>
+      476            <span class="countdown-time" style="color: #F97316;"><%= is_future ? "in
+           #{duration_str}" : "#{duration_str} ago" %></span>
+      477            <br>
+
+● Bash(git add -A && git commit -m "Make event name larger to match phase label…)
+  ⎿  [main 64fa980] Make event name larger to match phase label
+      1 file changed, 1 insertion(+), 1 deletion(-)
+     To github.com:jes5199/dirigible.git
+        36aaee9..64fa980  main -> main
+
+● Done. "Cazimi" is now 1.1em (almost as big as the phase label) and inherits the same color.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> test it with ?date=2024-06-04                                                                          ↵ send
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [Opus 4.5] 📁 dirigible | 🌿 main | 📊 53%
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+
+
+
