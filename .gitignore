@@ -1,0 +1,10 @@
+# Output directory
+tmux/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# uv
+.python-version
