@@ -1,6 +1,9 @@
 """CLI entry point and main loop."""
 
 import argparse
+import atexit
+import fcntl
+import os
 import sys
 import time
 from pathlib import Path
@@ -9,6 +12,31 @@ from .tmux import list_panes
 from .snapshot import write_snapshot, get_pane_dir
 from .input_queue import process_input_queue
 from .cleanup import cleanup_stale
+
+
+def acquire_lock(output_dir: Path) -> int:
+    """Acquire exclusive lock to prevent multiple instances. Returns fd."""
+    lock_file = output_dir / ".lock"
+    fd = os.open(str(lock_file), os.O_CREAT | os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        print(f"Error: Another instance is already running (lockfile: {lock_file})", file=sys.stderr)
+        sys.exit(1)
+    # Write PID to lock file
+    os.ftruncate(fd, 0)
+    os.write(fd, f"{os.getpid()}\n".encode())
+    return fd
+
+
+def release_lock(fd: int) -> None:
+    """Release the lock."""
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+    except Exception:
+        pass
 
 
 def main() -> None:
@@ -41,6 +69,10 @@ def main() -> None:
 
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Acquire lock to prevent multiple instances
+    lock_fd = acquire_lock(output_dir)
+    atexit.register(release_lock, lock_fd)
 
     print(f"file-tmux-file running: dir={output_dir}, scrollback={scrollback}, interval={args.interval}ms")
     print("Press Ctrl+C to stop")
