@@ -37,9 +37,15 @@ def process_input_queue(pane_id: str, input_file: Path) -> None:
         complete_lines = lines[:-1]
         unterminated = lines[-1]
 
-    # First, send any pending unterminated line from previous poll
-    if pane_id in _pending_unterminated:
-        pending = _pending_unterminated.pop(pane_id)
+    # Check if we have a pending unterminated line from previous poll
+    pending = _pending_unterminated.pop(pane_id, None)
+    if pending:
+        # If file content is just the pending line (unchanged), send it now
+        if content == pending and not complete_lines:
+            send_keys(pane_id, pending)
+            input_file.write_text("")
+            return
+        # Otherwise, new content was added - send pending first
         send_keys(pane_id, pending)
 
     # Send complete lines with their newlines
