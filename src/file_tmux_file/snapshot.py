@@ -1,12 +1,12 @@
 """Snapshot pane content to files."""
 
 from pathlib import Path
-from .tmux import Pane, capture_pane, sanitize_name
+from .tmux import Pane, capture_pane, sanitize_name, get_window_dir_name
 
 
-def write_snapshot(pane: Pane, output_dir: Path, scrollback: int) -> Path:
+def write_snapshot(pane: Pane, output_dir: Path, scrollback: int, window_dir_name: str) -> Path:
     """Write pane content to content.txt with metadata header."""
-    pane_dir = get_pane_dir(pane, output_dir)
+    pane_dir = get_pane_dir(pane, output_dir, window_dir_name)
     pane_dir.mkdir(parents=True, exist_ok=True)
 
     content_file = pane_dir / "content.txt"
@@ -32,7 +32,7 @@ Title: {pane.pane_title}
     return pane_dir
 
 
-def get_pane_dir(pane: Pane, output_dir: Path) -> Path:
+def get_pane_dir(pane: Pane, output_dir: Path, window_dir_name: str) -> Path:
     """Get the directory path for a pane."""
     session_dir = sanitize_name(pane.session)
-    return output_dir / session_dir / str(pane.window_index) / str(pane.pane_index)
+    return output_dir / session_dir / window_dir_name / str(pane.pane_index)

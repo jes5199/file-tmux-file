@@ -10,6 +10,7 @@ class Pane:
     session: str
     window_index: int
     window_name: str
+    window_id: str
     pane_index: int
     pane_title: str
     pane_id: str
@@ -21,7 +22,7 @@ def list_panes() -> list[Pane]:
         result = subprocess.run(
             [
                 "tmux", "list-panes", "-a",
-                "-F", "#{session_name}\t#{window_index}\t#{window_name}\t#{pane_index}\t#{pane_title}\t#{pane_id}"
+                "-F", "#{session_name}\t#{window_index}\t#{window_name}\t#{window_id}\t#{pane_index}\t#{pane_title}\t#{pane_id}"
             ],
             capture_output=True,
             text=True,
@@ -37,14 +38,15 @@ def list_panes() -> list[Pane]:
         if not line:
             continue
         parts = line.split("\t")
-        if len(parts) >= 6:
+        if len(parts) >= 7:
             panes.append(Pane(
                 session=parts[0],
                 window_index=int(parts[1]),
                 window_name=parts[2],
-                pane_index=int(parts[3]),
-                pane_title=parts[4],
-                pane_id=parts[5],
+                window_id=parts[3],
+                pane_index=int(parts[4]),
+                pane_title=parts[5],
+                pane_id=parts[6],
             ))
     return panes
 
@@ -103,3 +105,8 @@ def send_key(pane_id: str, key: str) -> bool:
 def sanitize_name(name: str) -> str:
     """Sanitize session/window names for filesystem use."""
     return re.sub(r'[^\w\-.]', '_', name)
+
+
+def get_window_dir_name(window_index: int, window_name: str) -> str:
+    """Get the directory name for a window: {index}-{sanitized_name}."""
+    return f"{window_index}-{sanitize_name(window_name)}"
