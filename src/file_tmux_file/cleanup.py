@@ -101,13 +101,17 @@ def cleanup_stale(
             del mapping[wid]
 
     # Walk the tree and find stale directories
+    stale_session_dirs: list[Path] = []
     stale_pane_dirs: list[Path] = []
     stale_window_dirs: list[Path] = []
 
     for session_dir in output_dir.iterdir():
         if not session_dir.is_dir() or session_dir.name.startswith('.'):
             continue
-        if session_dir.name == "windows.json":
+
+        if session_dir not in active_session_dirs:
+            # Entire session is stale
+            stale_session_dirs.append(session_dir)
             continue
 
         for window_dir in session_dir.iterdir():
@@ -125,12 +129,15 @@ def cleanup_stale(
                     if pane_dir not in active_pane_dirs:
                         stale_pane_dirs.append(pane_dir)
 
-    # Remove stale directories
+    # Remove stale directories (order: panes, windows, sessions)
     for pane_dir in stale_pane_dirs:
         _remove_dir_recursive(pane_dir)
 
     for window_dir in stale_window_dirs:
         _remove_dir_recursive(window_dir)
+
+    for session_dir in stale_session_dirs:
+        _remove_dir_recursive(session_dir)
 
     # Clean up empty parent directories
     for session_dir in output_dir.iterdir():
